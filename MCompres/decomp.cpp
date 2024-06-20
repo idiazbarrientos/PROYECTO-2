@@ -158,7 +158,7 @@ int main(int argc, char *argv[])
     {
         double promedio = accumulate(tiempos.begin(), tiempos.end(), 0.0) / tiempos.size();
         cout << "Tiempo promedio de descompresión: " << promedio << " ms" << endl;
-    }
+    
 
     /* Escribir los tiempos en un archivo CSV */
     ofstream csvFile("tiempo_descompresion.csv", ios::app);
@@ -168,13 +168,14 @@ int main(int argc, char *argv[])
         {
             csvFile << argv[1] << "," << tiempos[ejecucion] << " ms" << endl;
         }
+        csvFile << argv[1] << "," << promedio << " ms" << endl;
         csvFile.close();
     }
     else
     {
         cerr << "Error al abrir el archivo CSV para escribir los tiempos de descompresión." << endl;
     }
-
+  }
     return 0;
 }
 

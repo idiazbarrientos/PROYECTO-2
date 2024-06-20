@@ -215,6 +215,7 @@ int main(int argc, char *argv[])
          {
             csvFile << argv[1] << "," << tiempos[ejecucion] << " ms" << endl;
          }
+         csvFile << argv[1] << "," << promedio << " ms" << endl;
          csvFile.close();
       }
       else
