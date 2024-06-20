@@ -1,6 +1,8 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <vector>
+#include <numeric> // Para std::accumulate y std::divides
 
 using namespace std;
 using namespace std::chrono;
@@ -37,120 +39,140 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    /* Crear un árbol con la información de la tabla */
-    Arbol = new tipoNodo; /* Un nodo nuevo */
-    Arbol->letra = 0;
-    Arbol->uno = Arbol->cero = nullptr;
-    fe.open(argv[1], ios::binary);
-    fe.read(reinterpret_cast<char*>(&Longitud), sizeof(long int)); /* Lee el número de caracteres */
-    fe.read(reinterpret_cast<char*>(&nElementos), sizeof(int)); /* Lee el número de elementos */
-    for (i = 0; i < nElementos; i++) /* Leer todos los elementos */
+    int numEjecuciones = 20; // Número de veces que se ejecutará la descompresión
+
+    vector<long long> tiempos; // Vector para almacenar los tiempos de cada ejecución
+
+    for (int ejecucion = 0; ejecucion < numEjecuciones; ++ejecucion)
     {
-        p = new tipoNodo; /* Un nodo nuevo */
-        fe.read(reinterpret_cast<char*>(&p->letra), sizeof(char)); /* Lee el carácter */
-        fe.read(reinterpret_cast<char*>(&p->bits), sizeof(unsigned long int)); /* Lee el código */
-        fe.read(reinterpret_cast<char*>(&p->nbits), sizeof(char)); /* Lee la longitud */
-        p->cero = p->uno = nullptr;
-        /* Insertar el nodo en su lugar */
-        j = 1 << (p->nbits - 1);
-        q = Arbol;
-        while (j > 1)
+        /* Crear un árbol con la información de la tabla */
+        Arbol = new tipoNodo; /* Un nodo nuevo */
+        Arbol->letra = 0;
+        Arbol->uno = Arbol->cero = nullptr;
+        fe.open(argv[1], ios::binary);
+        fe.read(reinterpret_cast<char*>(&Longitud), sizeof(long int)); /* Lee el número de caracteres */
+        fe.read(reinterpret_cast<char*>(&nElementos), sizeof(int)); /* Lee el número de elementos */
+        for (i = 0; i < nElementos; i++) /* Leer todos los elementos */
         {
-            if (p->bits & j) /* Es un uno */
+            p = new tipoNodo; /* Un nodo nuevo */
+            fe.read(reinterpret_cast<char*>(&p->letra), sizeof(char)); /* Lee el carácter */
+            fe.read(reinterpret_cast<char*>(&p->bits), sizeof(unsigned long int)); /* Lee el código */
+            fe.read(reinterpret_cast<char*>(&p->nbits), sizeof(char)); /* Lee la longitud */
+            p->cero = p->uno = nullptr;
+            /* Insertar el nodo en su lugar */
+            j = 1 << (p->nbits - 1);
+            q = Arbol;
+            while (j > 1)
             {
-                if (q->uno) q = q->uno; /* Si el nodo existe, nos movemos a él */
-                else /* Si no existe, lo creamos */
+                if (p->bits & j) /* Es un uno */
                 {
-                    q->uno = new tipoNodo; /* Un nodo nuevo */
-                    q = q->uno;
-                    q->letra = 0;
-                    q->uno = q->cero = nullptr;
+                    if (q->uno) q = q->uno; /* Si el nodo existe, nos movemos a él */
+                    else /* Si no existe, lo creamos */
+                    {
+                        q->uno = new tipoNodo; /* Un nodo nuevo */
+                        q = q->uno;
+                        q->letra = 0;
+                        q->uno = q->cero = nullptr;
+                    }
                 }
+                else /* Es un cero */
+                {
+                    if (q->cero) q = q->cero; /* Si el nodo existe, nos movemos a él */
+                    else /* Si no existe, lo creamos */
+                    {
+                        q->cero = new tipoNodo; /* Un nodo nuevo */
+                        q = q->cero;
+                        q->letra = 0;
+                        q->uno = q->cero = nullptr;
+                    }
+                }
+                j >>= 1; /* Siguiente bit */
             }
+            /* Último Bit */
+            if (p->bits & 1) /* Es un uno */
+                q->uno = p;
             else /* Es un cero */
-            {
-                if (q->cero) q = q->cero; /* Si el nodo existe, nos movemos a él */
-                else /* Si no existe, lo creamos */
-                {
-                    q->cero = new tipoNodo; /* Un nodo nuevo */
-                    q = q->cero;
-                    q->letra = 0;
-                    q->uno = q->cero = nullptr;
-                }
-            }
-            j >>= 1; /* Siguiente bit */
+                q->cero = p;
         }
-        /* Último Bit */
-        if (p->bits & 1) /* Es un uno */
-            q->uno = p;
-        else /* Es un cero */
-            q->cero = p;
+
+        /* Leer datos comprimidos y extraer al fichero de salida */
+        bits = 0;
+
+        // Medición del tiempo de descompresión
+        auto start = high_resolution_clock::now();
+
+        fs.open(argv[2], ios::binary);
+        /* Lee los primeros cuatro bytes en la doble palabra bits */
+        fe.read(reinterpret_cast<char*>(&a), sizeof(char));
+        bits |= a;
+        bits <<= 8;
+        fe.read(reinterpret_cast<char*>(&a), sizeof(char));
+        bits |= a;
+        bits <<= 8;
+        fe.read(reinterpret_cast<char*>(&a), sizeof(char));
+        bits |= a;
+        bits <<= 8;
+        fe.read(reinterpret_cast<char*>(&a), sizeof(char));
+        bits |= a;
+        j = 0; /* Cada 8 bits leemos otro byte */
+        q = Arbol;
+        /* Bucle */
+        do {
+            if (bits & 0x80000000) q = q->uno;
+            else q = q->cero; /* Rama adecuada */
+            bits <<= 1; /* Siguiente bit */
+            j++;
+            if (8 == j) /* Cada 8 bits */
+            {
+                fe.read(reinterpret_cast<char*>(&a), sizeof(char)); /* Leemos un byte desde el fichero */
+                bits |= a; /* Y lo insertamos en bits */
+                j = 0; /* No quedan huecos */
+            }
+            if (!q->uno && !q->cero) /* Si el nodo es una letra */
+            {
+                fs.put(q->letra); /* La escribimos en el fichero de salida */
+                Longitud--; /* Actualizamos longitud que queda */
+                q = Arbol; /* Volvemos a la raíz del árbol */
+            }
+        } while (Longitud); /* Hasta que acabe el fichero */
+
+        // Finalización de la medición del tiempo
+        auto end = high_resolution_clock::now();
+        auto duration = duration_cast<milliseconds>(end - start).count();
+
+        cout << "Tiempo de descompresión (Ejecución " << ejecucion + 1 << "): " << duration << " ms" << endl;
+
+        /* Cerramos los ficheros */
+        fs.close();
+        fe.close();
+
+        /* Borrar el árbol */
+        BorrarArbol(Arbol);
+
+        /* Almacenamos el tiempo de esta ejecución en el vector */
+        tiempos.push_back(duration);
     }
 
-    /* Leer datos comprimidos y extraer al fichero de salida */
-    bits = 0;
+    /* Calculamos el promedio de los tiempos */
+    if (!tiempos.empty())
+    {
+        double promedio = accumulate(tiempos.begin(), tiempos.end(), 0.0) / tiempos.size();
+        cout << "Tiempo promedio de descompresión: " << promedio << " ms" << endl;
+    }
 
-    // Medición del tiempo de descompresión
-    auto start = high_resolution_clock::now();
-
-    fs.open(argv[2], ios::binary);
-    /* Lee los primeros cuatro bytes en la doble palabra bits */
-    fe.read(reinterpret_cast<char*>(&a), sizeof(char));
-    bits |= a;
-    bits <<= 8;
-    fe.read(reinterpret_cast<char*>(&a), sizeof(char));
-    bits |= a;
-    bits <<= 8;
-    fe.read(reinterpret_cast<char*>(&a), sizeof(char));
-    bits |= a;
-    bits <<= 8;
-    fe.read(reinterpret_cast<char*>(&a), sizeof(char));
-    bits |= a;
-    j = 0; /* Cada 8 bits leemos otro byte */
-    q = Arbol;
-    /* Bucle */
-    do {
-        if (bits & 0x80000000) q = q->uno;
-        else q = q->cero; /* Rama adecuada */
-        bits <<= 1; /* Siguiente bit */
-        j++;
-        if (8 == j) /* Cada 8 bits */
-        {
-            fe.read(reinterpret_cast<char*>(&a), sizeof(char)); /* Leemos un byte desde el fichero */
-            bits |= a; /* Y lo insertamos en bits */
-            j = 0; /* No quedan huecos */
-        }
-        if (!q->uno && !q->cero) /* Si el nodo es una letra */
-        {
-            fs.put(q->letra); /* La escribimos en el fichero de salida */
-            Longitud--; /* Actualizamos longitud que queda */
-            q = Arbol; /* Volvemos a la raíz del árbol */
-        }
-    } while (Longitud); /* Hasta que acabe el fichero */
-
-    // Finalización de la medición del tiempo
-    auto end = high_resolution_clock::now();
-    auto duration = duration_cast<milliseconds>(end - start).count();
-
-    cout << "Tiempo de descompresión: " << duration << " ms" << endl;
-
-    /* Cerramos los ficheros */
-    fs.close();
-    fe.close();
-
-    /* Borrar el árbol */
-    BorrarArbol(Arbol);
-
-    /* Escribir el tiempo en un archivo CSV */
+    /* Escribir los tiempos en un archivo CSV */
     ofstream csvFile("tiempo_descompresion.csv", ios::app);
     if (csvFile.is_open())
     {
-        csvFile << argv[1] << "," << duration << " ms" << endl;
+        for (int ejecucion = 0; ejecucion < numEjecuciones; ++ejecucion)
+        {
+            csvFile << argv[1] << "," << tiempos[ejecucion] << " ms" << endl;
+        }
         csvFile.close();
     }
     else
     {
-        cerr << "Error al abrir el archivo CSV para escribir el tiempo de descompresión." << endl;
+        cerr << "Error al abrir el archivo CSV para escribir los tiempos de descompresión." << endl;
     }
 
     return 0;
@@ -163,4 +185,5 @@ void BorrarArbol(tipoNodo *n)
     if (n->uno) BorrarArbol(n->uno);
     delete n;
 }
+
 
