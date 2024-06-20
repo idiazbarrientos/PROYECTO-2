@@ -3,9 +3,10 @@
 #include <cstdlib>
 #include <chrono>  // Biblioteca para medir el tiempo
 #include <vector>
+#include <numeric>
 
 using namespace std;
-using namespace std::chrono;  // Espacio de nombres para funciones de tiempo
+using namespace std::chrono;
 
 /* Tipo nodo para árbol o Lista de árboles */
 typedef struct _nodo
@@ -37,8 +38,6 @@ void BorrarArbol(tipoNodo *n);
 void CrearTabla(tipoNodo *n, int l, int v);
 void InsertarTabla(char c, int l, int v);
 tipoTabla *BuscaCaracter(tipoTabla *Tabla, char c);
-void ResetLista(tipoNodo* &Lista);
-void ResetTabla(tipoTabla* &Tabla);
 
 int main(int argc, char *argv[])
 {
@@ -51,9 +50,8 @@ int main(int argc, char *argv[])
    tipoTabla *t;
    int nElementos;                  // Número de elementos en tabla
    long int Longitud = 0;           // Longitud del fichero original
-   unsigned long int dWORD;         // Doble palabra usada durante la codificación
+   unsigned long int dWORD;         // Soble palabra usada durante la codificación
    int nBits;                       // Número de bits usados de dWORD
-   vector<long> tiempos;            // Vector para almacenar tiempos
 
    if(argc < 3)
    {
@@ -61,23 +59,31 @@ int main(int argc, char *argv[])
       return 1;
    }
 
-   // Leer el archivo de entrada y contar frecuencias
-   fe.open(argv[1], std::ios::binary);
-   if (!fe)
-   {
-      cerr << "Error al abrir el archivo de entrada.\n";
-      return 1;
-   }
+   int numEjecuciones = 20; // Número de veces que se ejecutará la compresión
 
-   while (fe.get(c))
-   {
-      Longitud++;
-      Cuenta(Lista, c);
-   }
-   fe.close();
+   // Vector para almacenar los tiempos de compresión
+   vector<long long> tiempos;
 
-   for (int i = 0; i < 2; ++i)
+   for (int ejecucion = 0; ejecucion < numEjecuciones; ++ejecucion)
    {
+      Lista = nullptr;
+
+      // Fase 1: contar frecuencias
+      fe.open(argv[1], std::ios::binary);
+      if (!fe)
+      {
+         cerr << "Error al abrir el archivo de entrada.\n";
+         return 1;
+      }
+
+      while (fe.get(c))
+      {
+         Longitud++;
+         Cuenta(Lista, c);
+      }
+      fe.close();
+
+      // Iniciar el cronómetro después de la lectura del archivo de entrada
       auto start = high_resolution_clock::now();
 
       // Ordenar la lista de menor a mayor
@@ -175,31 +181,48 @@ int main(int argc, char *argv[])
       fe.close();  // Cierra los ficheros
       fs.close();
 
+      // Finalizar el cronómetro después de la compresión
       auto stop = high_resolution_clock::now();
-      auto duration = duration_cast<milliseconds>(stop - start);
-      tiempos.push_back(duration.count());
+      auto duration = duration_cast<milliseconds>(stop - start).count();
+      cout << "Tiempo de compresión (Ejecución " << ejecucion + 1 << "): " << duration << " milisegundos" << endl;
 
-      // Limpiar estructuras para la siguiente iteración
-      //BorrarArbol(Arbol);
-      //ResetTabla(Tabla);
-      //Arbol = nullptr;
+      // Borrar Árbol
+      BorrarArbol(Arbol);
+
+      // Borrar Tabla
+      while (Tabla)
+      {
+         t = Tabla;
+         Tabla = t->sig;
+         delete t;
+      }
+
+      // Almacenar el tiempo de esta ejecución en el vector
+      tiempos.push_back(duration);
    }
 
-   // Guardar tiempos en un archivo CSV
-   std::ofstream csvFile("tiempos.csv");
-   if (!csvFile)
+   // Calculamos el promedio de los tiempos
+   if (!tiempos.empty())
    {
-      cerr << "Error al abrir el archivo CSV para escribir.\n";
-      return 1;
+      double promedio = accumulate(tiempos.begin(), tiempos.end(), 0.0) / tiempos.size();
+      cout << "Tiempo promedio de compresión: " << promedio << " milisegundos" << endl;
+
+      // Escribir los tiempos en un archivo CSV
+      ofstream csvFile("tiempo_compresion.csv", ios::app);
+      if (csvFile.is_open())
+      {
+         for (int ejecucion = 0; ejecucion < numEjecuciones; ++ejecucion)
+         {
+            csvFile << argv[1] << "," << tiempos[ejecucion] << " ms" << endl;
+         }
+         csvFile.close();
+      }
+      else
+      {
+         cerr << "Error al abrir el archivo CSV para escritura.\n";
+      }
    }
-   
-   csvFile << "Iteracion,Tiempo (ms)\n";
-   for (size_t i = 0; i < tiempos.size(); ++i)
-   {
-      csvFile << i + 1 << "," << tiempos[i] << "\n";
-   }
-   csvFile.close();
-   cout << "se ha comprimodo ";
+
    return 0;
 }
 
@@ -242,24 +265,27 @@ void Cuenta(tipoNodo* &Lista, char c)
          if(a)
             a->sig = q;      // y a
          else
-            Lista = q;       // O como primero
+            Lista = q;       // Si a es nullptr
+
+            Lista = q;       // Si `a` es `nullptr`, el nuevo es el primero
       }
    }
 }
 
-/* Ordenar la lista por frecuencia de menor a mayor */
+/* Ordena Lista de menor a mayor por frecuencias */
 void Ordenar(tipoNodo* &Lista)
 {
-   tipoNodo *Lista2 = nullptr, *a;
+   tipoNodo *Lista2, *a;
 
-   while(Lista)
+   if(!Lista) return;   // Lista vacía
+   Lista2 = Lista;
+   Lista = nullptr;
+   while(Lista2)
    {
-      a = Lista;
-      Lista = Lista->sig;     // Toma los elementos de Lista2
-      InsertarOrden(Lista2, a); // Y los inserta por orden en Lista
+      a = Lista2;              // Toma los elementos de Lista2
+      Lista2 = a->sig;
+      InsertarOrden(Lista, a); // Y los inserta por orden en Lista
    }
-
-   Lista = Lista2;
 }
 
 /* Inserta el elemento `e` en la Lista ordenado por frecuencia de menor a mayor */
@@ -353,28 +379,4 @@ void BorrarArbol(tipoNodo *n)
    if(n->cero) BorrarArbol(n->cero);
    if(n->uno)  BorrarArbol(n->uno);
    delete n;
-}
-
-/* Función para reiniciar la tabla */
-void ResetTabla(tipoTabla* &Tabla)
-{
-   tipoTabla *t;
-   while (Tabla)
-   {
-      t = Tabla;
-      Tabla = Tabla->sig;
-      delete t;
-   }
-}
-
-/* Función para reiniciar la lista */
-void ResetLista(tipoNodo* &Lista)
-{
-   tipoNodo *p;
-   while (Lista)
-   {
-      p = Lista;
-      Lista = Lista->sig;
-      delete p;
-   }
 }
