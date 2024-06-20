@@ -1,10 +1,10 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include <chrono>  // Biblioteca para medir el tiempo
+#include <chrono>  
 
 using namespace std;
-using namespace std::chrono;  // Espacio de nombres para funciones de tiempo
+using namespace std::chrono; 
 
 /* Tipo nodo para árbol o Lista de árboles */
 typedef struct _nodo
@@ -57,9 +57,6 @@ int main(int argc, char *argv[])
       return 1;
    }
 
-   // Iniciar el cronómetro antes de la compresión
-   auto start = high_resolution_clock::now();
-
    Lista = nullptr;
 
    // Fase 1: contar frecuencias
@@ -76,6 +73,9 @@ int main(int argc, char *argv[])
       Cuenta(Lista, c);
    }
    fe.close();
+
+   // Iniciar el cronómetro después de la lectura del archivo de entrada
+   auto start = high_resolution_clock::now();
 
    // Ordenar la lista de menor a mayor
    Ordenar(Lista);
