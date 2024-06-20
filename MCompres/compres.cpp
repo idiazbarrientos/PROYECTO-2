@@ -1,10 +1,11 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include <chrono>  
+#include <chrono>  // Biblioteca para medir el tiempo
+#include <vector>
 
 using namespace std;
-using namespace std::chrono; 
+using namespace std::chrono;  // Espacio de nombres para funciones de tiempo
 
 /* Tipo nodo para árbol o Lista de árboles */
 typedef struct _nodo
@@ -36,6 +37,8 @@ void BorrarArbol(tipoNodo *n);
 void CrearTabla(tipoNodo *n, int l, int v);
 void InsertarTabla(char c, int l, int v);
 tipoTabla *BuscaCaracter(tipoTabla *Tabla, char c);
+void ResetLista(tipoNodo* &Lista);
+void ResetTabla(tipoTabla* &Tabla);
 
 int main(int argc, char *argv[])
 {
@@ -48,8 +51,9 @@ int main(int argc, char *argv[])
    tipoTabla *t;
    int nElementos;                  // Número de elementos en tabla
    long int Longitud = 0;           // Longitud del fichero original
-   unsigned long int dWORD;         // Soble palabra usada durante la codificación
+   unsigned long int dWORD;         // Doble palabra usada durante la codificación
    int nBits;                       // Número de bits usados de dWORD
+   vector<long> tiempos;            // Vector para almacenar tiempos
 
    if(argc < 3)
    {
@@ -57,9 +61,7 @@ int main(int argc, char *argv[])
       return 1;
    }
 
-   Lista = nullptr;
-
-   // Fase 1: contar frecuencias
+   // Leer el archivo de entrada y contar frecuencias
    fe.open(argv[1], std::ios::binary);
    if (!fe)
    {
@@ -74,120 +76,130 @@ int main(int argc, char *argv[])
    }
    fe.close();
 
-   // Iniciar el cronómetro después de la lectura del archivo de entrada
-   auto start = high_resolution_clock::now();
-
-   // Ordenar la lista de menor a mayor
-   Ordenar(Lista);
-
-   // Crear el árbol
-   Arbol = Lista;
-   while (Arbol && Arbol->sig)
+   for (int i = 0; i < 2; ++i)
    {
-      p = new tipoNodo;                     // Un nuevo árbol
-      p->letra = 0;                         // No corresponde a ninguna letra
-      p->uno = Arbol;                       // Rama uno
-      Arbol = Arbol->sig;                   // Siguiente nodo en
-      p->cero = Arbol;                      // Rama cero
-      Arbol = Arbol->sig;                   // Siguiente nodo
-      p->frecuencia = p->uno->frecuencia + p->cero->frecuencia; // Suma de frecuencias
-      InsertarOrden(Arbol, p);              // Inserta en nuevo nodo
-   }
+      auto start = high_resolution_clock::now();
 
-   // Construir la tabla de códigos binarios
-   Tabla = nullptr;
-   CrearTabla(Arbol, 0, 0);
+      // Ordenar la lista de menor a mayor
+      Ordenar(Lista);
 
-   // Crear fichero comprimido
-   fs.open(argv[2], std::ios::binary);
-   if (!fs)
-   {
-      cerr << "Error al abrir el archivo de salida.\n";
-      return 1;
-   }
-
-   // Escribir la longitud del fichero original
-   fs.write(reinterpret_cast<char*>(&Longitud), sizeof(long int));
-
-   // Contar el número de elementos de tabla
-   nElementos = 0;
-   t = Tabla;
-   while (t)
-   {
-      nElementos++;
-      t = t->sig;
-   }
-
-   // Escribir el número de elementos de tabla
-   fs.write(reinterpret_cast<char*>(&nElementos), sizeof(int));
-
-   // Escribir tabla en fichero
-   t = Tabla;
-   while (t)
-   {
-      fs.write(&t->letra, sizeof(char));
-      fs.write(reinterpret_cast<char*>(&t->bits), sizeof(unsigned long int));
-      fs.write(&t->nbits, sizeof(char));
-      t = t->sig;
-   }
-
-   // Codificación del fichero de entrada
-   fe.open(argv[1], std::ios::binary);
-   if (!fe)
-   {
-      cerr << "Error al abrir nuevamente el archivo de entrada.\n";
-      return 1;
-   }
-
-   dWORD = 0;   // Valor inicial
-   nBits = 0;   // Ningún bit
-
-   while (fe.get(c))
-   {
-      // Busca c en tabla
-      t = BuscaCaracter(Tabla, c);
-
-      // Si nBits + t->nbits > 32, sacar un byte
-      while (nBits + t->nbits > 32)
+      // Crear el árbol
+      Arbol = Lista;
+      while (Arbol && Arbol->sig)
       {
-         c = dWORD >> (nBits - 8);             // Extrae los 8 bits de mayor peso
-         fs.write(&c, sizeof(char));           // Y lo escribe en el fichero
-         nBits -= 8;                           // Ya tenemos hueco para 8 bits más
+         p = new tipoNodo;                     // Un nuevo árbol
+         p->letra = 0;                         // No corresponde a ninguna letra
+         p->uno = Arbol;                       // Rama uno
+         Arbol = Arbol->sig;                   // Siguiente nodo en
+         p->cero = Arbol;                      // Rama cero
+         Arbol = Arbol->sig;                   // Siguiente nodo
+         p->frecuencia = p->uno->frecuencia + p->cero->frecuencia; // Suma de frecuencias
+         InsertarOrden(Arbol, p);              // Inserta en nuevo nodo
       }
 
-      dWORD <<= t->nbits;         // Hacemos sitio para el nuevo caracter
-      dWORD |= t->bits;           // Insertamos el nuevo caracter
-      nBits += t->nbits;          // Actualizamos la cuenta de bits
-   }
+      // Construir la tabla de códigos binarios
+      Tabla = nullptr;
+      CrearTabla(Arbol, 0, 0);
 
-   // Extraer los cuatro bytes que quedan en dWORD
-   while (nBits > 0)
-   {
-      if (nBits >= 8) c = dWORD >> (nBits - 8);
-      else c = dWORD << (8 - nBits);
-      fs.write(&c, sizeof(char));
-      nBits -= 8;
-   }
+      // Crear fichero comprimido
+      fs.open(argv[2], std::ios::binary);
+      if (!fs)
+      {
+         cerr << "Error al abrir el archivo de salida.\n";
+         return 1;
+      }
 
-   fe.close();  // Cierra los ficheros
-   fs.close();
+      // Escribir la longitud del fichero original
+      fs.write(reinterpret_cast<char*>(&Longitud), sizeof(long int));
 
-   // Finalizar el cronómetro después de la compresión
-   auto stop = high_resolution_clock::now();
-   auto duration = duration_cast<milliseconds>(stop - start);
-   cout << "Tiempo de compresión: " << duration.count() << " milisegundos" << endl;
-
-   // Borrar Árbol
-   BorrarArbol(Arbol);
-
-   // Borrar Tabla
-   while (Tabla)
-   {
+      // Contar el número de elementos de tabla
+      nElementos = 0;
       t = Tabla;
-      Tabla = t->sig;
-      delete t;
+      while (t)
+      {
+         nElementos++;
+         t = t->sig;
+      }
+
+      // Escribir el número de elementos de tabla
+      fs.write(reinterpret_cast<char*>(&nElementos), sizeof(int));
+
+      // Escribir tabla en fichero
+      t = Tabla;
+      while (t)
+      {
+         fs.write(&t->letra, sizeof(char));
+         fs.write(reinterpret_cast<char*>(&t->bits), sizeof(unsigned long int));
+         fs.write(&t->nbits, sizeof(char));
+         t = t->sig;
+      }
+
+      // Codificación del fichero de entrada
+      fe.open(argv[1], std::ios::binary);
+      if (!fe)
+      {
+         cerr << "Error al abrir nuevamente el archivo de entrada.\n";
+         return 1;
+      }
+
+      dWORD = 0;   // Valor inicial
+      nBits = 0;   // Ningún bit
+
+      while (fe.get(c))
+      {
+         // Busca c en tabla
+         t = BuscaCaracter(Tabla, c);
+
+         // Si nBits + t->nbits > 32, sacar un byte
+         while (nBits + t->nbits > 32)
+         {
+            c = dWORD >> (nBits - 8);             // Extrae los 8 bits de mayor peso
+            fs.write(&c, sizeof(char));           // Y lo escribe en el fichero
+            nBits -= 8;                           // Ya tenemos hueco para 8 bits más
+         }
+
+         dWORD <<= t->nbits;         // Hacemos sitio para el nuevo caracter
+         dWORD |= t->bits;           // Insertamos el nuevo caracter
+         nBits += t->nbits;          // Actualizamos la cuenta de bits
+      }
+
+      // Extraer los cuatro bytes que quedan en dWORD
+      while (nBits > 0)
+      {
+         if (nBits >= 8) c = dWORD >> (nBits - 8);
+         else c = dWORD << (8 - nBits);
+         fs.write(&c, sizeof(char));
+         nBits -= 8;
+      }
+
+      fe.close();  // Cierra los ficheros
+      fs.close();
+
+      auto stop = high_resolution_clock::now();
+      auto duration = duration_cast<milliseconds>(stop - start);
+      tiempos.push_back(duration.count());
+
+      // Limpiar estructuras para la siguiente iteración
+      //BorrarArbol(Arbol);
+      //ResetTabla(Tabla);
+      //Arbol = nullptr;
    }
 
+   // Guardar tiempos en un archivo CSV
+   std::ofstream csvFile("tiempos.csv");
+   if (!csvFile)
+   {
+      cerr << "Error al abrir el archivo CSV para escribir.\n";
+      return 1;
+   }
+   
+   csvFile << "Iteracion,Tiempo (ms)\n";
+   for (size_t i = 0; i < tiempos.size(); ++i)
+   {
+      csvFile << i + 1 << "," << tiempos[i] << "\n";
+   }
+   csvFile.close();
+   cout << "se ha comprimodo ";
    return 0;
 }
 
@@ -230,27 +242,24 @@ void Cuenta(tipoNodo* &Lista, char c)
          if(a)
             a->sig = q;      // y a
          else
-            Lista = q;       // Si a es nullptr
-
-            Lista = q;       // Si `a` es `nullptr`, el nuevo es el primero
+            Lista = q;       // O como primero
       }
    }
 }
 
-/* Ordena Lista de menor a mayor por frecuencias */
+/* Ordenar la lista por frecuencia de menor a mayor */
 void Ordenar(tipoNodo* &Lista)
 {
-   tipoNodo *Lista2, *a;
+   tipoNodo *Lista2 = nullptr, *a;
 
-   if(!Lista) return;   // Lista vacía
-   Lista2 = Lista;
-   Lista = nullptr;
-   while(Lista2)
+   while(Lista)
    {
-      a = Lista2;              // Toma los elementos de Lista2
-      Lista2 = a->sig;
-      InsertarOrden(Lista, a); // Y los inserta por orden en Lista
+      a = Lista;
+      Lista = Lista->sig;     // Toma los elementos de Lista2
+      InsertarOrden(Lista2, a); // Y los inserta por orden en Lista
    }
+
+   Lista = Lista2;
 }
 
 /* Inserta el elemento `e` en la Lista ordenado por frecuencia de menor a mayor */
@@ -344,4 +353,28 @@ void BorrarArbol(tipoNodo *n)
    if(n->cero) BorrarArbol(n->cero);
    if(n->uno)  BorrarArbol(n->uno);
    delete n;
+}
+
+/* Función para reiniciar la tabla */
+void ResetTabla(tipoTabla* &Tabla)
+{
+   tipoTabla *t;
+   while (Tabla)
+   {
+      t = Tabla;
+      Tabla = Tabla->sig;
+      delete t;
+   }
+}
+
+/* Función para reiniciar la lista */
+void ResetLista(tipoNodo* &Lista)
+{
+   tipoNodo *p;
+   while (Lista)
+   {
+      p = Lista;
+      Lista = Lista->sig;
+      delete p;
+   }
 }
