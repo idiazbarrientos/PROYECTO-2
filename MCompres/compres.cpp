@@ -1,7 +1,7 @@
 #include <iostream>
 #include <fstream>
 #include <cstdlib>
-#include <chrono>  // Biblioteca para medir el tiempo
+#include <chrono>  
 #include <vector>
 #include <numeric>
 
