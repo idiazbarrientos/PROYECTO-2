@@ -5,6 +5,8 @@
 #include <fstream>
 #include <iostream>
 
+using namespace std;
+
 /* Tipo nodo para árbol o Lista de árboles */
 typedef struct _nodo {
     unsigned char letra;    /* Letra a la que hace referencia el nodo */
@@ -50,9 +52,9 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    std::vector<double> tiempos;
+    vector<double> tiempos;
     for (int iter = 0; iter < 4; ++iter) {
-        auto start = std::chrono::high_resolution_clock::now();
+        auto start =chrono::high_resolution_clock::now();
 
         Lista = NULL;
         Longitud = 0;
@@ -145,12 +147,12 @@ int main(int argc, char *argv[]) {
             free(t);
         }
 
-        auto end = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> elapsed = end - start;
+        auto end =chrono::high_resolution_clock::now();
+        chrono::duration<double> elapsed = end - start;
         tiempos.push_back(elapsed.count());
 
         // Imprimir el tiempo en la terminal
-        std::cout << "Iteracion " << iter + 1 << ": " << elapsed.count() << " segundos" << std::endl;
+        cout << "Iteracion " << iter + 1 << ": " << elapsed.count() << " segundos" << std::endl;
     }
 
     // Calcular el promedio
@@ -161,7 +163,7 @@ int main(int argc, char *argv[]) {
     double promedio = suma / tiempos.size();
 
     // Escribir tiempos y promedio en el archivo CSV
-    std::ofstream file("tiemposCodificar.csv");
+    ofstream file("tiemposCodificar.csv");
     for (const auto& tiempo : tiempos) {
         file << tiempo << "\n";
     }
