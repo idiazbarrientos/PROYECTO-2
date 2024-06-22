@@ -61,7 +61,14 @@ int main(int argc, char *argv[])
         printf("Usar:\n%s <fichero_entrada> <fichero_salida>\n", argv[0]);
         return 1;
     }
+    /* Medir el tiempo de compresion */
+    vector<long long> tiempos;
+    int numEjecuciones = 20; // Número de ejecuciones para promediar el tiempo
 
+    for (int ejecucion = 0; ejecucion < numEjecuciones; ++ejecucion)
+    {
+      // Iniciar medición de tiempo
+        auto start = high_resolution_clock::now();
     Lista = NULL;
     /* Fase 1: contar frecuencias */
     fe = fopen(argv[1], "r");
@@ -121,19 +128,11 @@ int main(int argc, char *argv[])
         t = t->sig;
     }
 
-    /* Medir el tiempo de compresion */
-    vector<long long> tiempos;
-    int numEjecuciones = 20; // Número de ejecuciones para promediar el tiempo
-
-    for (int ejecucion = 0; ejecucion < numEjecuciones; ++ejecucion)
-    {
+    
         /* Codificación del fichero de entrada */
         fe = fopen(argv[1], "r");
         dWORD = 0; /* Valor inicial. */
         nBits = 0; /* Ningún bit */
-
-        // Iniciar medición de tiempo
-        auto start = high_resolution_clock::now();
 
         do {
             c = fgetc(fe);

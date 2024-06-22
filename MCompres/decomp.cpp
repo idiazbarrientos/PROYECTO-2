@@ -44,6 +44,9 @@ int main(int argc, char *argv[])
 
     for (int ejecucion = 0; ejecucion < numEjecuciones; ++ejecucion)
     {
+        /* Iniciar medición de tiempo */
+        auto start = high_resolution_clock::now();
+
         /* Crear un arbol con la información de la tabla */
         Arbol = (tipoNodo *)malloc(sizeof(tipoNodo)); /* un nodo nuevo */
         Arbol->letra = 0;
@@ -90,8 +93,6 @@ int main(int argc, char *argv[])
                 q->cero = p;
         }
 
-        /* Iniciar medición de tiempo */
-        auto start = high_resolution_clock::now();
 
         /* Leer datos comprimidos y extraer al fichero de salida */
         bits = 0;
