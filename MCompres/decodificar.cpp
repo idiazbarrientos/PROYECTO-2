@@ -4,7 +4,7 @@
 #include <vector>
 #include <fstream>
 #include <iostream>
-#include <numeric> // Para std::accumulate
+#include <numeric> 
 using namespace std;
 
 /* Tipo nodo para árbol */
@@ -25,7 +25,7 @@ int main(int argc, char *argv[]) {
       return 1;
    }
 
-   std::vector<double> tiempos;
+   vector<double> tiempos;
    for (int iter = 0; iter < 20; ++iter) {
       auto start =chrono::high_resolution_clock::now();
 
