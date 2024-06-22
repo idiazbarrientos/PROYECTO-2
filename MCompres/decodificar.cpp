@@ -132,7 +132,7 @@ int main(int argc, char *argv[]) {
    double promedio = std::accumulate(tiempos.begin(), tiempos.end(), 0.0) / tiempos.size();
 
    // Escribir los tiempos y el promedio en el archivo CSV
-   std::ofstream file("tiempos.csv");
+   std::ofstream file("tiemposDecodificar.csv");
    for (const auto &tiempo : tiempos) {
       file << tiempo << "\n";
    }

@@ -161,7 +161,7 @@ int main(int argc, char *argv[]) {
     double promedio = suma / tiempos.size();
 
     // Escribir tiempos y promedio en el archivo CSV
-    std::ofstream file("tiempos.csv");
+    std::ofstream file("tiemposCodificar.csv");
     for (const auto& tiempo : tiempos) {
         file << tiempo << "\n";
     }
